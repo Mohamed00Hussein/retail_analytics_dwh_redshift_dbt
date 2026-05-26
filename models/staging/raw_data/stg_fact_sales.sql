@@ -16,6 +16,7 @@ stg_fact_sales as (
         order_status,
         payment_method,
         shipping_city,
+        store_id,
         shipping_country,
         total_order_amount,
         source_system
