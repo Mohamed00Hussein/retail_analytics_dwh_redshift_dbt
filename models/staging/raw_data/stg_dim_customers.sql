@@ -2,7 +2,7 @@ with
 
 source as (
 
-    select * from {{ source('retail', 'dim_customers') }}
+    select * from {{ source('raw_data', 'customers_raw') }}
 
 ),
 
@@ -13,7 +13,9 @@ stg_dim_customers as (
         customer_name,
         email,
         region,
-        signup_date
+        signup_date,
+        source_system,
+        ingestion_date
 
     from source
 

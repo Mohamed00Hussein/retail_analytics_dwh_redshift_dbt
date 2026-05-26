@@ -1,14 +1,17 @@
 version: 2
 
 sources:
-  - name: retail  # This is the logical name used in DBT (you can choose this)
-    database: dev  # The actual database in Redshift
-    schema: retail  # The actual schema in Redshift
+  - name: raw_data # This is the logical name used in DBT (you can choose this)
+    database: dev # The actual database in Redshift
+    schema: raw_data # The actual schema in Redshift
     tables:
-      - name: fact_sales  # Must match the actual table name in Redshift
-      - name: fact_inventory
-      - name: dim_customers
+      - name: orders_raw # Must match the actual table name in Redshift
+      - name: order_items_raw
+      - name: inventory_raw
+      - name: customers_raw
       - name: dim_time
-      - name: dim_products
-      - name: dim_stores
-      - name: dim_employees
+      - name: products_raw
+      - name: stores_raw
+      - name: employees_raw
+  
+   
