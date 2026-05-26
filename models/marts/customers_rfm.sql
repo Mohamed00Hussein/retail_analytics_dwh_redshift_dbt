@@ -8,5 +8,5 @@ with scores as (
     from {{ ref('customers_segmentation') }} )
 
     select * 
-    ,recency_score*frequency_score*monetary_score as rfm
+    ,(recency_score+frequency_score+monetary_score)/3 as rfm
     from scores
