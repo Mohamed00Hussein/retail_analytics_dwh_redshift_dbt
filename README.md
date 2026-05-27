@@ -212,8 +212,8 @@ retail_analytics_dwh_redshift_dbt/
 │   └── generate_schema_name.sql # Environment-aware schema routing
 ├── tests/
 │   ├── negative_orders.sql           # Flags any negative order amount
-│   ├── reconcile_sales_total.sql     # Revenue parity: fact_sales vs orders_raw
-│   └── reconcile_customer_count.sql  # Row parity: dim_customers vs customers_raw
+│   ├── total_order_amount_validation.sql     # Revenue parity: fact_sales vs orders_raw
+│   └── number_of_customer_validation.sql  # Row parity: dim_customers vs customers_raw
 ├── snapshots/
 │   └── customers_snapshot.sql        # SCD Type 2 history on the customers dimension
 ├── seeds/
