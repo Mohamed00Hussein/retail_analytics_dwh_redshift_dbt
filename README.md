@@ -211,9 +211,12 @@ retail_analytics_dwh_redshift_dbt/
 │   ├── rfm.sql                  # ⭐ Custom reusable NTILE-based RFM scoring macro
 │   └── generate_schema_name.sql # Environment-aware schema routing
 ├── tests/
-│   └── negative_orders.sql      # Singular data test: flags any negative order amount
-├── seeds/
+│   ├── negative_orders.sql           # Flags any negative order amount
+│   ├── reconcile_sales_total.sql     # Revenue parity: fact_sales vs orders_raw
+│   └── reconcile_customer_count.sql  # Row parity: dim_customers vs customers_raw
 ├── snapshots/
+│   └── customers_snapshot.sql        # SCD Type 2 history on the customers dimension
+├── seeds/
 └── analyses/
 ```
 
@@ -231,24 +234,43 @@ retail_analytics_dwh_redshift_dbt/
 
 ## ✅ Data Quality
 
-Models are guarded by a custom **singular data test** that enforces a business rule the warehouse should never violate:
+Models are guarded by **custom singular data tests** that enforce business rules the warehouse should never violate. Each follows dbt's "return the failing rows" pattern — the query selects offending records, and the test passes only when **zero rows** come back.
 
 | Test | Target | Asserts |
 |------|--------|---------|
-| `negative_orders` | `fact_sales` | No order ever has a negative `total_order_amount` |
+| `negative_orders` | `fact_sales` | No order has a negative `total_order_amount` |
+| `reconcile_sales_total` | `fact_sales` ↔ `orders_raw` | Total revenue in the fact table matches the raw source — no rows dropped or double-counted |
+| `reconcile_customer_count` | `dim_customers` ↔ `customers_raw` | Every distinct customer survives the journey from raw into the dimension |
 
-The test follows dbt's "return the failing rows" pattern — it selects any order where `total_order_amount < 0`, and the test passes only when **zero rows** come back. Catching corrupt or refunded-as-negative records here stops bad data from silently flowing into the revenue, segmentation, and RFM marts downstream.
+The two **reconciliation tests** are the backbone of pipeline trust: `reconcile_sales_total` sums `total_order_amount` on both sides and fails if a single cent drifts, while `reconcile_customer_count` compares distinct `customer_id` counts so neither silent row loss nor accidental fan-out can slip through. Catching these at build time stops bad data from flowing into the revenue, segmentation, and RFM marts downstream.
 
 ```bash
-dbt test                          # run every test
-dbt test --select negative_orders # run just this one
+dbt test                                # run every test
+dbt test --select negative_orders       # run just one
+```
+
+---
+
+## 📸 Snapshots — Slowly Changing Dimensions
+
+Customers aren't static — they move regions, change emails, update names. The `customers_snapshot` captures that history as a **Type 2 slowly changing dimension (SCD2)**, so the warehouse can answer *"what did this customer look like at the time of their order?"* rather than only showing the latest state.
+
+It uses dbt's `check` strategy on the attributes most likely to drift (`customer_name`, `email`, `region`), versioning a new row each time one changes:
+
+```
+stg_dim_customers ─▶ customers_snapshot ─▶ versioned history
+                       (check strategy)      (valid_from / valid_to per change)
+```
+
+```bash
+dbt snapshot   # capture the current state and version any changes
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-**Prerequisites:** Python 3.8+, a Redshift cluster, and a dbt profile named `default` pointing at it.
+**Prerequisites:** Python 3.8+, a Redshift cluster, and a dbt profile named `default` pointing at it.you will find the source layer (raw_data) sql script in the files, run it on the redshift editor first.
 
 ```bash
 # 1. Install dbt with the Redshift adapter
@@ -266,7 +288,10 @@ dbt run
 # 5. Run data quality tests
 dbt test
 
-# 6. Generate & serve the documentation site + lineage graph
+# 6. Capture dimension history (SCD2)
+dbt snapshot
+
+# 7. Generate & serve the documentation site + lineage graph
 dbt docs generate && dbt docs serve
 ```
 
@@ -279,11 +304,11 @@ dbt docs generate && dbt docs serve
 | Tool | Role |
 |------|------|
 | **Amazon Redshift** | Cloud data warehouse / compute engine |
-| **dbt cloud (Data Build Tool)** | Transformation, testing, docs, lineage |
+| **dbt cloud(Data Build Tool)** | Transformation, testing, docs, lineage |
 | **SQL + Jinja** | Modeling language and templating for reusable macros |
 
 ---
 
 ## 📈 What this demonstrates
 
-This project is a compact but complete demonstration of **analytics engineering** fundamentals: dimensional modeling (star schema), the staging/marts pattern, reusable macro development, data quality testing, environment-aware deployment, and translating business questions (churn risk, dead stock, customer value) directly into maintainable SQL models.
+This project is a compact but complete demonstration of **analytics engineering** fundamentals: dimensional modeling (star schema), the staging/marts pattern, reusable macro development, data quality testing with source reconciliation, slowly changing dimensions (SCD2 snapshots), environment-aware deployment, and translating business questions (churn risk, dead stock, customer value) directly into maintainable SQL models.
